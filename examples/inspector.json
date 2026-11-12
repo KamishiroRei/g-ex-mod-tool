@@ -1,0 +1,31 @@
+{
+  "schema": "g-ex.mod.inspector.v1",
+  "parts": {
+    "Example_Part": {
+      "entries": [
+        {
+          "id": "example_weapon",
+          "title": "示例武装",
+          "description": "这是一条示例说明。",
+          "resources": ["消耗.武器.Example"],
+          "drives": ["Example_Drive"],
+          "attributes": [
+            {
+              "title": "威力",
+              "source": "基础威力",
+              "unit": "",
+              "group": "attack",
+              "hidden": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "drives": {
+    "Example_Drive": {
+      "title": "示例驱动",
+      "description": "可为驱动单独填写说明。"
+    }
+  }
+}

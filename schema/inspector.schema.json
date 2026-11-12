@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "G-EX inspector configuration",
+  "type": "object",
+  "required": ["schema", "parts", "drives"],
+  "properties": {
+    "schema": {"const": "g-ex.mod.inspector.v1"},
+    "parts": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/part"}
+    },
+    "drives": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/drive"}
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "required": ["title", "source", "unit", "group", "hidden"],
+      "properties": {
+        "title": {"type": "string"},
+        "source": {"type": "string"},
+        "value": {"type": ["string", "number", "boolean"]},
+        "unit": {"type": "string"},
+        "group": {"enum": ["attack", "regular"]},
+        "hidden": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "attributes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/attribute"}
+    },
+    "entry": {
+      "type": "object",
+      "required": ["id", "title", "resources", "drives"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "resources": {"type": "array", "items": {"type": "string"}},
+        "drives": {"type": "array", "items": {"type": "string"}},
+        "attributes": {"$ref": "#/$defs/attributes"}
+      },
+      "additionalProperties": true
+    },
+    "part": {
+      "type": "object",
+      "required": ["entries"],
+      "properties": {
+        "entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}}
+      },
+      "additionalProperties": true
+    },
+    "drive": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "attributes": {"$ref": "#/$defs/attributes"}
+      },
+      "additionalProperties": true
+    }
+  }
+}
