@@ -4,17 +4,24 @@
 
 ## 启动
 
-需要安装带 Tkinter 的 Python 3，无须安装其他依赖。双击 **启动 G-EX Mod Tool.cmd**，或在工具目录打开命令行：
+Windows x64 用户可解压 `G-EX-Mod-Tool-Windows-x64.zip`，双击 **G-EX Mod Tool.exe**。工具随游戏提供时，也可从 `ExceedCavalier/ModTools` 目录启动。
 
-```text
-py -3 gex_mod_tool.pyw --project "游戏工程目录"
-```
+这是独立程序，无需安装 Python、虚幻引擎或其他运行依赖。工具会优先识别随游戏的数据；如需手动选择，可选择游戏外层目录，或选择包含 `ExtentData/Parts` 的目录。
 
 ## 使用
 
-1. 选择游戏工程根目录，即包含 `ExtentData/Parts` 的目录。
-2. 选择部件，编辑展示条目及其关联的资源和驱动。可先点击 **导入默认条目**，根据部件定义生成尚未配置的资源和公开驱动条目，已有条目不会被覆盖。
-3. 选择驱动，按需设置属性的显示顺序、区块、隐藏状态、标签、单位和显示内容。
-4. 保存配置。工具会写入工程目录下的 `UI/Hangar/inspector.json`。
+1. 选择部件。可点击 **导入默认条目**，根据部件定义生成尚未配置的资源和公开驱动条目，已有条目不会被覆盖。
+2. 编辑展示条目及其关联的资源和驱动，按需调整属性的显示顺序、区块、隐藏状态、标签、单位和显示内容。
+3. 点击 **保存**。配置写入实际游戏数据目录下的 `UI/Hangar/inspector.json`。
 
-未设置的属性使用游戏数据中的实际值；属性列表设为空时，不显示属性。工具会记住上次选择的工程目录。
+未设置的属性使用游戏数据中的实际值；属性列表为空时不显示属性。手动填写的数值只改变显示，不改变伤害等游戏数值。
+
+## 维护者
+
+Windows x64 构建依赖见 `requirements-build.txt`。在源码目录运行：
+
+```text
+python build_windows.py --game-root "ExceedCavalier 根目录"
+```
+
+游戏内的工具路径为 `ExceedCavalier/ModTools/G-EX Mod Tool.exe`。

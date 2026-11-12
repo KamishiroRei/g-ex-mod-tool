@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import uuid
 
@@ -19,6 +20,29 @@ _EXCLUDED = re.compile(r"(?:^|[._\-\s])(bak|backup|archive)(?:$|[._\-\s])", re.I
 
 def _excluded(name: str) -> bool:
     return bool(_EXCLUDED.search(name)) or name in {"备份", "归档"}
+
+
+def resolve_game_directory(directory):
+    """Resolve either the data directory or the outer packaged-game directory."""
+    root = Path(directory).expanduser().resolve()
+    for candidate in (root, root / "ExceedCavalier"):
+        if (candidate / PARTS_RELATIVE_PATH).is_dir():
+            return candidate
+    return None
+
+
+def nearby_game_directory():
+    # A one-file executable extracts Python modules to a temporary location;
+    # game content must be found beside the actual executable instead.
+    if getattr(sys, "frozen", False):
+        location = Path(sys.executable).resolve().parent
+    else:
+        location = Path(__file__).resolve().parent.parent
+    for directory in (location, location.parent, Path.cwd()):
+        found = resolve_game_directory(directory)
+        if found is not None:
+            return found
+    return None
 
 
 def _read_json(path: Path):
@@ -93,10 +117,10 @@ def _references(value):
 
 class Project:
     def __init__(self, root: str | Path):
-        self.root = Path(root).expanduser().resolve()
+        self.root = resolve_game_directory(root)
+        if self.root is None:
+            raise ValueError("找不到游戏数据，请选择游戏目录。")
         self.parts_dir = self.root / PARTS_RELATIVE_PATH
-        if not self.parts_dir.is_dir():
-            raise ValueError("所选目录中找不到 ExtentData/Parts，请选择游戏工程根目录。")
         self.config_path = self.root / CONFIG_RELATIVE_PATH
         if self.config_path.exists():
             data = _read_json(self.config_path)

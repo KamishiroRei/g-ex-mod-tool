@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import copy
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import ttk
 import uuid
 
-from .model import Project, last_project, remember_project
+from . import theme
+from . import theme as messagebox
+from .model import Project, last_project, nearby_game_directory, remember_project
 
 
 ATTRIBUTE_SOURCES = (
@@ -84,6 +86,7 @@ class Picker(ttk.Frame):
 class AttributeDialog(tk.Toplevel):
     def __init__(self, parent, initial):
         super().__init__(parent)
+        self.configure(background=theme.BACKGROUND)
         self.title("属性")
         self.transient(parent.winfo_toplevel())
         self.resizable(False, False)
@@ -96,7 +99,7 @@ class AttributeDialog(tk.Toplevel):
         self.has_value = tk.BooleanVar(value="value" in initial)
         self.group = tk.StringVar(value="攻击" if initial.get("group") == "attack" else "常规")
         self.hidden = tk.BooleanVar(value=bool(initial.get("hidden", False)))
-        body = ttk.Frame(self, padding=16)
+        body = ttk.Frame(self, padding=20)
         body.grid(sticky="nsew")
         body.columnconfigure(1, weight=1)
         ttk.Label(body, text="显示名").grid(row=0, column=0, sticky="w", pady=4, padx=(0, 12))
@@ -119,10 +122,11 @@ class AttributeDialog(tk.Toplevel):
         buttons = ttk.Frame(body)
         buttons.grid(row=6, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
-        ttk.Button(buttons, text="确定", command=self._accept).pack(side="right", padx=6)
+        ttk.Button(buttons, text="确定", command=self._accept, style="Accent.TButton").pack(side="right", padx=6)
         self._value_state()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.bind("<Escape>", lambda _event: self.destroy())
+        theme.apply_window(self)
         self.wait_visibility()
         self.grab_set()
         self.focus_set()
@@ -164,13 +168,13 @@ class AttributeDialog(tk.Toplevel):
 
 class AttributeEditor(ttk.LabelFrame):
     def __init__(self, master, target, on_change, **kwargs):
-        super().__init__(master, text="属性", padding=7, **kwargs)
+        super().__init__(master, text="属性", padding=10, **kwargs)
         self.target = target
         self.on_change = on_change
         self.status = tk.StringVar(value="自动")
         toolbar = ttk.Frame(self)
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 5))
-        ttk.Label(toolbar, textvariable=self.status).pack(side="left", padx=(0, 14))
+        ttk.Label(toolbar, textvariable=self.status, style="Muted.TLabel").pack(side="left", padx=(0, 14))
         for text, command in (("添加", self.add), ("编辑", self.edit), ("删除", self.remove),
                               ("上移", lambda: self.move(-1)), ("下移", lambda: self.move(1)),
                               ("清空", self.clear), ("恢复自动", self.auto)):
@@ -180,8 +184,9 @@ class AttributeEditor(ttk.LabelFrame):
         for key, title, width in (("title", "显示名", 145), ("source", "原属性名", 155),
                                   ("value", "手填值", 100), ("unit", "单位", 65),
                                   ("group", "区域", 65), ("hidden", "隐藏", 55)):
-            self.tree.heading(key, text=title)
-            self.tree.column(key, width=width, minwidth=45, stretch=key in ("title", "source", "value"))
+            anchor = "e" if key == "value" else "center" if key in ("unit", "group", "hidden") else "w"
+            self.tree.heading(key, text=title, anchor=anchor)
+            self.tree.column(key, width=width, minwidth=45, anchor=anchor, stretch=key in ("title", "source", "value"))
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
         self.tree.grid(row=1, column=0, sticky="nsew")
@@ -287,7 +292,7 @@ class AttributeEditor(ttk.LabelFrame):
 
 class BindingEditor(ttk.LabelFrame):
     def __init__(self, master, title, field, get_target, open_selection=None, **kwargs):
-        super().__init__(master, text=title, padding=7, **kwargs)
+        super().__init__(master, text=title, padding=10, **kwargs)
         self.field = field
         self.get_target = get_target
         self.open_selection = open_selection
@@ -295,7 +300,7 @@ class BindingEditor(ttk.LabelFrame):
         self.picker = Picker(self, search_width=9)
         self.picker.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 5))
         ttk.Button(self, text="加入", command=self.add).grid(row=0, column=2, padx=(5, 0))
-        self.list = tk.Listbox(self, height=4, exportselection=False)
+        self.list = tk.Listbox(self, height=4, exportselection=False, activestyle="none")
         self.list.grid(row=1, column=0, columnspan=2, sticky="nsew")
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.list.yview)
         scroll.grid(row=1, column=2, sticky="nsw")
@@ -378,7 +383,7 @@ class BindingEditor(ttk.LabelFrame):
 
 class PartEditor(ttk.Frame):
     def __init__(self, master, app):
-        super().__init__(master, padding=10)
+        super().__init__(master, padding=14)
         self.app = app
         self.part_id = None
         self.entry = None
@@ -394,11 +399,11 @@ class PartEditor(ttk.Frame):
         ttk.Label(bar, text="部件").grid(row=0, column=0, padx=(0, 8))
         self.part_picker = Picker(bar, on_select=self.select_part)
         self.part_picker.grid(row=0, column=1, sticky="ew")
-        sidebar = ttk.LabelFrame(self, text="条目", padding=7)
+        sidebar = ttk.LabelFrame(self, text="条目", padding=10)
         sidebar.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
         sidebar.rowconfigure(0, weight=1)
         sidebar.columnconfigure(0, weight=1)
-        self.entries = tk.Listbox(sidebar, width=25, exportselection=False)
+        self.entries = tk.Listbox(sidebar, width=25, exportselection=False, activestyle="none")
         self.entries.grid(row=0, column=0, columnspan=2, sticky="nsew")
         scroll = ttk.Scrollbar(sidebar, command=self.entries.yview)
         self.entries.configure(yscrollcommand=scroll.set)
@@ -424,7 +429,7 @@ class PartEditor(ttk.Frame):
         self.title_entry.grid(row=0, column=1, sticky="ew", pady=(0, 5))
         self.title_entry.bind("<FocusOut>", lambda _event: self.commit())
         self.id_text = tk.StringVar(value="")
-        ttk.Label(form, textvariable=self.id_text).grid(row=1, column=1, sticky="w", pady=(0, 5))
+        ttk.Label(form, textvariable=self.id_text, style="Muted.TLabel").grid(row=1, column=1, sticky="w", pady=(0, 5))
         ttk.Label(form, text="说明").grid(row=2, column=0, sticky="nw", padx=(0, 8))
         self.description = tk.Text(form, height=3, wrap="word", undo=True)
         self.description.grid(row=2, column=1, sticky="ew")
@@ -588,7 +593,7 @@ class PartEditor(ttk.Frame):
 
 class DriveEditor(ttk.Frame):
     def __init__(self, master, app):
-        super().__init__(master, padding=10)
+        super().__init__(master, padding=14)
         self.app = app
         self.drive_id = None
         self.drive = None
@@ -669,35 +674,41 @@ class DriveEditor(ttk.Frame):
 
 class App(tk.Tk):
     def __init__(self, project_arg=None):
+        theme.prepare_process()
         super().__init__()
+        theme.apply(self)
         self.title("G-EX Mod Tool")
-        self.geometry("1380x880")
+        width = max(1000, min(1380, self.winfo_screenwidth() - 80))
+        height = max(700, min(880, self.winfo_screenheight() - 80))
+        self.geometry(f"{width}x{height}")
         self.minsize(1000, 700)
         self.project = None
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
-        header = ttk.Frame(self, padding=(10, 10, 10, 4))
+        header = ttk.Frame(self, padding=(16, 16, 16, 12))
         header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(1, weight=1)
-        ttk.Label(header, text="工程").grid(row=0, column=0, padx=(0, 8))
+        header.columnconfigure(2, weight=1)
+        ttk.Label(header, text="G-EX MOD TOOL", style="Brand.TLabel").grid(row=0, column=0, padx=(0, 24))
+        ttk.Label(header, text="游戏目录", style="Muted.TLabel").grid(row=0, column=1, padx=(0, 8))
         self.project_path = tk.StringVar()
-        ttk.Entry(header, textvariable=self.project_path, state="readonly").grid(row=0, column=1, sticky="ew")
-        ttk.Button(header, text="选择工程", command=self.choose_project).grid(row=0, column=2, padx=6)
-        ttk.Button(header, text="保存", command=self.save).grid(row=0, column=3)
+        ttk.Entry(header, textvariable=self.project_path, state="readonly").grid(row=0, column=2, sticky="ew")
+        ttk.Button(header, text="选择目录", command=self.choose_project).grid(row=0, column=3, padx=(8, 12))
+        ttk.Button(header, text="保存", command=self.save, style="Accent.TButton").grid(row=0, column=4)
         self.notebook = ttk.Notebook(self)
-        self.notebook.grid(row=1, column=0, sticky="nsew", padx=10, pady=4)
+        self.notebook.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 8))
         self.parts = PartEditor(self.notebook, self)
         self.drives = DriveEditor(self.notebook, self)
         self.notebook.add(self.parts, text="部件条目")
         self.notebook.add(self.drives, text="驱动详情")
         self.notebook.bind("<<NotebookTabChanged>>", lambda _event: self.commit())
-        self.status = tk.StringVar(value="请选择游戏工程")
-        ttk.Label(self, textvariable=self.status, anchor="w", padding=(10, 5)).grid(row=2, column=0, sticky="ew")
+        ttk.Separator(self, orient="horizontal").grid(row=2, column=0, sticky="ew", padx=16)
+        self.status = tk.StringVar(value="请选择游戏目录")
+        ttk.Label(self, textvariable=self.status, anchor="w", padding=(16, 8), style="Muted.TLabel").grid(row=3, column=0, sticky="ew")
         self.bind("<Control-s>", self._save_shortcut)
         self.protocol("WM_DELETE_WINDOW", self.close)
-        project = project_arg or last_project()
+        project = project_arg if project_arg is not None else nearby_game_directory() or last_project()
         if project:
-            self.after_idle(lambda: self.open_project(project, notify=bool(project_arg)))
+            self.after_idle(lambda: self.open_project(project, notify=project_arg is not None))
 
     def commit(self):
         self.parts.commit()
@@ -715,7 +726,7 @@ class App(tk.Tk):
 
     def save(self):
         if self.project is None:
-            messagebox.showinfo("保存", "请先选择游戏工程。", parent=self)
+            messagebox.showinfo("保存", "请先选择游戏目录。", parent=self)
             return False
         self.commit()
         try:
@@ -740,7 +751,7 @@ class App(tk.Tk):
     def choose_project(self):
         if not self._confirm_changes():
             return
-        path = filedialog.askdirectory(title="选择游戏工程根目录", initialdir=self.project_path.get() or None, parent=self)
+        path = theme.askdirectory(title="选择游戏目录", initialdir=self.project_path.get() or None, parent=self)
         if path:
             self.open_project(path)
 
@@ -748,9 +759,9 @@ class App(tk.Tk):
         try:
             project = Project(path)
         except (OSError, UnicodeError, ValueError) as error:
-            self.status.set("无法打开工程")
+            self.status.set("无法打开游戏目录")
             if notify:
-                messagebox.showerror("无法打开工程", str(error), parent=self)
+                messagebox.showerror("无法打开游戏目录", str(error), parent=self)
             return False
         self.project = project
         self.project_path.set(str(project.root))
@@ -771,6 +782,6 @@ class App(tk.Tk):
 
 def main():
     parser = argparse.ArgumentParser(description="G-EX Mod Tool")
-    parser.add_argument("--project", help="游戏工程根目录")
+    parser.add_argument("--project", help="游戏目录")
     args = parser.parse_args()
     App(args.project).mainloop()
