@@ -1,6 +1,6 @@
 # G-EX Mod Tool
 
-v0.1.0 · Windows x64
+v0.1.1 · Windows x64
 
 G-EX Mod Tool 是直接对接游戏正式数据和内部作者链的开源制作工具，用于配置部件和驱动的展示内容。项目制作与外部 MOD 作者使用同一个工具、功能、源码、SKILL 和构建产物。
 

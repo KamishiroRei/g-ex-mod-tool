@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import math
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -16,6 +17,19 @@ import zipfile
 ROOT = Path(__file__).resolve().parent
 APP_NAME = "G-EX Mod Tool"
 ARCHIVE_NAME = "G-EX-Mod-Tool-Windows-x64.zip"
+
+
+def build_environment() -> dict[str, str]:
+    qt = Path(importlib.metadata.distribution("PySide6-Essentials").locate_file("PySide6"))
+    system = Path(os.environ["SystemRoot"])
+    paths = (qt, Path(sys.executable).parent, system / "System32", system,
+             Path(sys.base_prefix), Path(sys.base_prefix) / "DLLs", Path(sys.base_prefix) / "Library/bin")
+    environment = dict(os.environ)
+    # Dependency collection must not search application-specific PATH entries
+    # (for example another application's incompatible icuuc.dll).
+    environment["PATH"] = os.pathsep.join(dict.fromkeys(str(path) for path in paths))
+    environment["PYTHONNOUSERSITE"] = "1"
+    return environment
 
 
 def executable_icon() -> Path:
@@ -86,7 +100,7 @@ def author_sources(release: Path) -> None:
         "examples": ("*.json",),
         "assets": ("*.svg",),
         "design": ("approved-ui.png", "README.md"),
-        "packaging": ("*.txt",),
+        "packaging": ("*.txt", "*.py"),
         ".agents/skills": ("*.md", "*.yaml"),
     }.items():
         for pattern in patterns:
@@ -112,6 +126,7 @@ def main() -> int:
     command = [
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--onedir", "--windowed", "--noupx",
         "--name", APP_NAME, "--icon", str(executable_icon()),
+        "--runtime-hook", str(ROOT / "packaging/runtime_windows_icu.py"),
         "--exclude-module", "tkinter", "--exclude-module", "PyQt5", "--exclude-module", "PyQt6",
         "--add-data", str(ROOT / "gex_mod_tool/editor.qss") + ";gex_mod_tool",
         "--add-data", str(ROOT / "assets/app-icon.svg") + ";assets",
@@ -119,7 +134,7 @@ def main() -> int:
         "--specpath", str(ROOT / "build/spec"), str(ROOT / "gex_mod_tool.pyw"),
     ]
     if not args.content_only:
-        subprocess.run(command, cwd=ROOT, check=True)
+        subprocess.run(command, cwd=ROOT, env=build_environment(), check=True)
     release = output / APP_NAME
     executable = release / (APP_NAME + ".exe")
     runtime_notices(release)
@@ -137,9 +152,18 @@ def main() -> int:
             parser.error("--game-root must contain the game's ExtentData/Parts directory.")
         destination = game / "modtool"
         destination.mkdir(parents=True, exist_ok=True)
+        # Runtime files belong to this build as a set. Overlaying a new bundle
+        # would leave obsolete DLLs able to shadow the new/system dependencies.
+        runtime = (destination / "_internal").resolve()
+        if runtime.parent != destination.resolve() or runtime.name != "_internal":
+            raise ValueError("The runtime destination must stay inside the target modtool directory.")
+        if not args.content_only and runtime.exists():
+            shutil.rmtree(runtime)
         for source in release.rglob("*"):
             if source.is_file():
                 relative = source.relative_to(release)
+                if args.content_only and (relative.parts[0] == "_internal" or relative.name == executable.name):
+                    continue
                 # The source module already owns these author files in an
                 # in-project build; only copy runtime outputs into that root.
                 target = destination / relative

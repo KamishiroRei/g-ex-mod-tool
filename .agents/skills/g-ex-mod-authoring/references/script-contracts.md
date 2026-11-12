@@ -33,3 +33,5 @@
 `gex_mod_tool/model.py` 负责文件、配置与保存；`catalog.py` 负责真实目录、自动条目及属性适配；`qt_app.py`/相关 Qt 模块负责同一选择下的层级、预览和当前对象编辑；`editor.qss` 为外置样式。若当前源码文件拆分变化，沿实际导入更新本入口，不另存一份过期实现。
 
 同一工具从源码构建使用 `build_windows.py` 和 `requirements-build.txt`，直接运行使用同版本随包 EXE。发布收集包含运行库、完整工具作者源、Schema/示例、本技能与使用说明，不包含构建环境、凭据、宿主私有 SKILL 或临时日志。
+
+当前 Windows Qt 构建使用系统 ICU C 接口。`windows_runtime.py` 与构建运行时钩子在 Qt 导入前选择系统库；构建脚本的 DLL 搜索路径仅含对应 Qt/Python 和 Windows 目录。不要从宿主 PATH 中的其他应用复制同名 `icuuc.dll`，其版本化接口可能与 Qt 所需系统接口不同。更新运行库时整体替换工具私有 `_internal`，避免旧 DLL 在覆盖升级后继续遮蔽系统或新库；源码、配置和未保存工作不属于此私有运行库。
